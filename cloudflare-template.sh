@@ -15,7 +15,7 @@ discorduri=""                                       # URI for Discord WebHook "h
 
 
 ###########################################
-## Check if we have a public IP
+## Check if we have a public IP & Get ISP & ASN
 ###########################################
 ipv4_regex='([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\.([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\.([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\.([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])'
 ip=$(curl -s -4 https://cloudflare.com/cdn-cgi/trace | grep -E '^ip'); ret=$?
@@ -32,7 +32,8 @@ if [[ ! $ip =~ ^$ipv4_regex$ ]]; then
     logger -s "DDNS Updater: Failed to find a valid IP."
     exit 2
 fi
-
+asn=$(curl -s http://ipwhois.app/xml/ | sed -n 's:.*<asn>\(.*\)</asn>.*:\1:p')
+isp=$(curl -s http://ipwhois.app/xml/ | sed -n 's:.*<isp>\(.*\)</isp>.*:\1:p')
 ###########################################
 ## Check and set the proper auth header
 ###########################################
@@ -61,7 +62,7 @@ if [[ $record == *"\"count\":0"* ]]; then
 fi
 
 ###########################################
-## Get existing IP
+## Get existing IP 
 ###########################################
 old_ip=$(echo "$record" | sed -E 's/.*"content":"(([0-9]{1,3}\.){3}[0-9]{1,3})".*/\1/')
 # Compare if they're the same
@@ -110,13 +111,13 @@ case "$update" in
     curl -L -X POST $slackuri \
     --data-raw '{
       "channel": "'$slackchannel'",
-      "text" : "'"$sitename"' Updated: '$record_name''"'"'s'""' new IP Address is '$ip'"
+      "text" : "'"$sitename"' Updated: '$record_name''"'"'s'""' new IP Address is '$ip' with ISP:'$isp' via '$asn'"
     }'
   fi
   if [[ $discorduri != "" ]]; then
     curl -i -H "Accept: application/json" -H "Content-Type:application/json" -X POST \
     --data-raw '{
-      "content" : "'"$sitename"' Updated: '$record_name''"'"'s'""' new IP Address is '$ip'"
+      "content" : "'"$sitename"' Updated: '$record_name''"'"'s'""' new IP Address is '$ip' with ISP:'$isp' via '$asn'"
     }' $discorduri
   fi
   exit 0;;
